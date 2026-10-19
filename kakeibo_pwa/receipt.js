@@ -115,7 +115,7 @@ function setupReceiptImport(){
       }else if(/^(txt|csv|tsv|json|html|htm)$/.test(ext)||file.type.startsWith('text/')){
         if(file.size>2*1024*1024)throw Error('文字データは2MB以内にしてください');
         text=await file.text();
-        if(/^(html|htm)$/.test(ext)){const doc=new DOMParser().parseFromString(text,'text/html');doc.querySelectorAll('script,style,iframe,img,link').forEach(e=>e.remove());text=doc.body.textContent;}
+        if(/^(html|htm)$/.test(ext)){text=text.replace(/<(script|style|iframe)\b[^>]*>[\s\S]*?<\/\1\s*>/gi,'').replace(/<\/?(?:br|p|div|tr|li|h[1-6])\b[^>]*>/gi,'\n').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ').replace(/&amp;/gi,'&').replace(/&quot;/gi,'\"').replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(Number(n))).replace(/&lt;/gi,'<').replace(/&gt;/gi,'>');}
         else if(ext==='json'){
           const data=JSON.parse(text);if(Array.isArray(data))throw Error('複数の取引データは1件ずつ取り込んでください。バックアップCSVは設定画面から復元できます。');
           text=Object.entries(data).map(([key,value])=>`${key}: ${typeof value==='object'?JSON.stringify(value):value}`).join('\n');
