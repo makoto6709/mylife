@@ -1,6 +1,6 @@
 'use strict';
-const CACHE='kakeibo-v4.0.0';
-const ASSETS=['./','./index.html','./style.css','./app.js','./manifest.webmanifest','./icon.png','./icon-512.png'];
+const CACHE='kakeibo-v4.1.0';
+const ASSETS=['./','./index.html','./style.css','./app.js','./receipt.js','./manifest.webmanifest','./icon.png','./icon-512.png'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS))));
 // Wait for existing windows to close before switching versions; never erase other MyLife caches.
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('kakeibo-')&&key!==CACHE).map(key=>caches.delete(key))))));

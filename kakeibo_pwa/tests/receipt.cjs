@@ -1,0 +1,18 @@
+'use strict';
+const vm=require('node:vm'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const source=fs.readFileSync(path.join(__dirname,'../receipt.js'),'utf8'),ctx=vm.createContext({});vm.runInContext(source,ctx);
+const samples=[
+ ['スーパー\n2026/10/19 12:35\n小計 463\n合計 ¥500\n消費税 37\nお預り 1000\nお釣り 500',{amount:500,date:'2026-10-19',memo:'スーパー'}],
+ ['コンビニ\n合計\n¥1,234\n内税 91',{amount:1234}],
+ ['電子レシート\nお買上合計 2,500円\nポイント 25',{amount:2500}],
+ ['STORE\nTOTAL 1234\nCASH 2000\nCHANGE 766',{amount:1234}],
+ ['商品A 200円\n商品B 300円',{amount:0}],
+ ['合計 1000円\nお支払金額 900円',{amount:900}],
+ ['合計 500円\n合計 800円',{amount:500,ambiguous:true}],
+ ['店\n2026年2月30日\n合計５００円',{amount:500,date:'',invalidDate:true}],
+ ['merchant: テストスーパー\ndate: 2026-10-19\namount: 500',{memo:'テストスーパー',amount:500,date:'2026-10-19'}],
+ ['¥500',{amount:500}],['合計 8円',{amount:8}],['内税合計 80円',{amount:0}],
+];
+for(const [text,want]of samples){ctx.input=text;const result=vm.runInContext('parseReceiptText(input)',ctx);for(const[k,v]of Object.entries(want))assert.equal(result[k],v,`${text}: ${k}`);}
+const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');assert.match(html,/id="imageInput"[^>]*accept="image\/\*" hidden/);assert.match(html,/id="cameraInput"[^>]*capture="environment"/);assert.match(html,/id="receiptFileInput"[^>]*\.pdf/);
+console.log(`PASS: ${samples.length} receipt total/date/ambiguity cases; separate camera/photo/file selectors`);
