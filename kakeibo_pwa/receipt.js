@@ -30,14 +30,15 @@ function parseReceiptText(raw, now=new Date()) {
   const discountRows=[];const discountSummaries=[];
   for(const line of lines){
     if(/返品|返金|取消|電話|TEL|FAX|合\s*計|小\s*計|お支払|お釣|残高|\d{2,4}[/-]\d{1,2}[/-]\d{1,2}/i.test(line)&&!/割引合計|値引合計|割引総額|値引総額/.test(line))continue;
-    const match=line.match(/[-−‐–—]\s*[¥￥]?\s*(\d[\d, ]*)(?:円)?\s*$/);
+    const discountLine=/割\s*引|値\s*引|クーポン|引\s*き/.test(line)?line.replace(/ー(?=\s*\d)/g,'-'):line;
+    const match=discountLine.match(/[-−‐–—]\s*[¥￥]?\s*(\d[\d, ]*)(?:円)?\s*$/);
     if(!match)continue;const value=Number(match[1].replace(/[ ,]/g,''));if(!Number.isSafeInteger(value)||value<=0)continue;
     (/割引合計|値引合計|割引総額|値引総額/.test(line)?discountSummaries:discountRows).push(value);
   }
   const receiptDiscountAmount=discountRows.length?discountRows.reduce((sum,n)=>sum+n,0):Math.max(0,...discountSummaries);
   const receiptDiscountCount=discountRows.length;
   const receiptTotal=amount;
-  let benefitAmount=0,cashAmount=null,payment='未指定',benefitHint='';
+  let benefitAmount=0,cashAmount=null,payment='未指定',benefitHint='',voucherCandidate=null;
   const voucherLabel=/株\s*主\s*優\s*待(?:\s*券)?/;
   const voucherIndex=lines.findIndex(l=>voucherLabel.test(l));
   if(voucherIndex>=0){
@@ -50,10 +51,10 @@ function parseReceiptText(raw, now=new Date()) {
     if(v>0){
       benefitAmount=v;
       if(receiptTotal>=v&&p!==null&&p+v===receiptTotal){cashAmount=p;amount=p;payment=/AEON\s*Pay/i.test(paid)?'AEON Pay':/PayPay/i.test(paid)?'PayPay':/クレジット/.test(paid)?'クレジット':/現金/.test(paid)?'現金':'電子マネー';}
-      else benefitHint='株主優待'+v.toLocaleString('ja-JP')+'円をお得に計上します。支払額との照合ができないため金額欄を確認してください。支出からは自動で差し引いていません。';
+      else {if(p!==null&&p>0&&receiptTotal>p&&receiptTotal-p!==v)voucherCandidate=receiptTotal-p;benefitHint=(voucherCandidate?'合計と支払額の差は'+voucherCandidate.toLocaleString('ja-JP')+'円ですが、優待のOCR値は'+v.toLocaleString('ja-JP')+'円です。原本で優待額を確認してください。':'')+'株主優待'+v.toLocaleString('ja-JP')+'円をお得に計上します。支払額との照合ができないため金額欄を確認してください。支出からは自動で差し引いていません。';}
     }else benefitHint='株主優待の記載がありますが額を読み取れませんでした。お得の種類に株主優待を選び、金額を入力してください。';
   }
-  return {amount,date,memo,ambiguous,invalidDate,receiptTotal,receiptDiscountAmount,receiptDiscountCount,benefitAmount,benefitType:benefitAmount?'株主優待':'',cashAmount,payment,benefitHint};
+  return {amount,date,memo,ambiguous,invalidDate,receiptTotal,receiptDiscountAmount,receiptDiscountCount,voucherCandidate,benefitAmount,benefitType:benefitAmount?'株主優待':'',cashAmount,payment,benefitHint};
 }
 function setupReceiptImport(){
   const byId=id=>document.getElementById(id);
@@ -62,7 +63,7 @@ function setupReceiptImport(){
   function clearPreview(){if(previewURL)URL.revokeObjectURL(previewURL);previewURL='';byId('receiptPreview').removeAttribute('src');byId('receiptPreview').hidden=true;}
   function updateCandidate(){
     const parsed=parseReceiptText(byId('receiptText').value);
-    byId('receiptCandidate').textContent=parsed.amount?`取引候補：${parsed.amount.toLocaleString('ja-JP')}円${parsed.benefitAmount?' ／ 株主優待 '+parsed.benefitAmount.toLocaleString('ja-JP')+'円（レシート合計 '+parsed.receiptTotal.toLocaleString('ja-JP')+'円）':''}${parsed.receiptDiscountAmount?' ／ 値引き・割引 '+parsed.receiptDiscountAmount.toLocaleString('ja-JP')+'円（'+parsed.receiptDiscountCount+'件）':''}${parsed.date?' ／ '+parsed.date:''}${parsed.ambiguous?'（金額の候補が複数あります）':''}`:'金額を特定できません。読み取り文字を直すか、取引画面で入力してください。';
+    byId('receiptCandidate').textContent=(parsed.voucherCandidate?'【要確認：合計と支払額の差は'+parsed.voucherCandidate.toLocaleString('ja-JP')+'円】 ':'')+(parsed.amount?`取引候補：${parsed.amount.toLocaleString('ja-JP')}円${parsed.benefitAmount?' ／ 株主優待 '+parsed.benefitAmount.toLocaleString('ja-JP')+'円（レシート合計 '+parsed.receiptTotal.toLocaleString('ja-JP')+'円）':''}${parsed.receiptDiscountAmount?' ／ 値引き・割引 '+parsed.receiptDiscountAmount.toLocaleString('ja-JP')+'円（'+parsed.receiptDiscountCount+'件）':''}${parsed.date?' ／ '+parsed.date:''}${parsed.ambiguous?'（金額の候補が複数あります）':''}`:'金額を特定できません。読み取り文字を直すか、取引画面で入力してください。');
   }
   function checkpoint(job){if(job.cancelled)throw Error('読み取りを中止しました');}
   function deadline(promise,ms,job,label){
@@ -84,12 +85,21 @@ function setupReceiptImport(){
       workerPath:'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
       corePath:'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.0',
       langPath:'https://tessdata.projectnaptha.com/4.0.0',
-      logger:info=>{if(!job.cancelled)progress((info.status==='recognizing text'?'文字を読み取り中':'認識データを準備中')+`… ${Math.round((info.progress||0)*100)}%`);},
+      logger:info=>{if(!job.cancelled)progress((job.section?`区画 ${job.section}/${job.sections}：`:'')+(info.status==='recognizing text'?'文字を読み取り中':'認識データを準備中')+`… ${Math.round((info.progress||0)*100)}%`);},
       errorHandler:error=>{if(!job.cancelled)progress('文字認識でエラーが発生しました。再試行できます。');}
     });
     creating.then(worker=>{if(job.cancelled)worker.terminate();},()=>{});
     const worker=await deadline(creating,90000,job,'認識データの取得');job.worker=worker;checkpoint(job);
-    try{return (await deadline(worker.recognize(input),90000,job,'文字認識')).data.text;}
+    try{
+      await worker.setParameters({tessedit_pageseg_mode:'6',preserve_interword_spaces:'1'});
+      const segmented=!!input.receiptTiles,images=segmented?input.receiptTiles():[input],texts=[];
+      job.sections=segmented?input.count:1;job.section=0;
+      for(const canvas of images){
+        checkpoint(job);job.section++;
+        try{texts.push((await deadline(worker.recognize(canvas),90000,job,'文字認識')).data.text);}
+        finally{if(segmented)canvas.width=canvas.height=1;}
+      }return texts.join('\n');
+    }
     finally{await worker.terminate();job.worker=null;}
   }
   async function imageCanvas(file,job){
@@ -97,9 +107,33 @@ function setupReceiptImport(){
     try{
       const img=new Image();img.src=url;
       await deadline(new Promise((resolve,reject)=>{img.onload=resolve;img.onerror=()=>reject(Error('この画像形式を開けませんでした。JPEG・PNGやスクリーンショットで再選択してください。'));}),20000,job,'画像の読み込み');
-      const scale=Math.min(Math.max(1,900/img.naturalWidth),1600/img.naturalWidth,Math.sqrt(3000000/(img.naturalWidth*img.naturalHeight)));
-      const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(img.naturalWidth*scale));canvas.height=Math.max(1,Math.round(img.naturalHeight*scale));
-      const context=canvas.getContext('2d');if(!context)throw Error('画像を処理できませんでした');context.fillStyle='white';context.fillRect(0,0,canvas.width,canvas.height);context.drawImage(img,0,0,canvas.width,canvas.height);return canvas;
+      // Split at blank horizontal rows before scaling. Long receipts keep legible digits
+      // without holding one very large canvas in mobile memory or counting overlap twice.
+      const width=img.naturalWidth,height=img.naturalHeight,cuts=[0];
+      const segmentHeight=Math.max(1,Math.round(width*1.6));
+      let top=0;
+      while(height-top>segmentHeight*1.25){
+        checkpoint(job);const target=top+segmentHeight,radius=Math.max(4,Math.round(width*.15));
+        const start=Math.max(top+1,target-radius),end=Math.min(height-1,target+radius);
+        const sample=document.createElement('canvas');sample.width=Math.min(400,width);sample.height=end-start+1;
+        const sc=sample.getContext('2d');sc.drawImage(img,0,start,width,end-start+1,0,0,sample.width,sample.height);
+        const data=sc.getImageData(0,0,sample.width,sample.height).data;
+        let cut=target,best=Infinity;
+        for(let y=0;y<sample.height;y++){
+          let dark=0;for(let x=Math.floor(sample.width*.04);x<sample.width*.96;x++){const i=(y*sample.width+x)*4;dark+=(765-data[i]-data[i+1]-data[i+2])/765;}
+          const score=dark/sample.width+Math.abs(start+y-target)/Math.max(radius,1)*.015;
+          if(score<best){best=score;cut=start+y;}
+        }sample.width=sample.height=1;cuts.push(cut);top=cut;
+        if(cuts.length>30)throw Error('レシートが長すぎます。上半分・下半分に分けて選択してください。');
+      }cuts.push(height);
+      return {count:cuts.length-1,*receiptTiles(){
+        for(let i=0;i<cuts.length-1;i++){
+          const h=cuts[i+1]-cuts[i],scale=Math.min(3.5,1100/width,Math.sqrt(2400000/(width*h)));
+          const canvas=document.createElement('canvas');canvas.width=Math.round(width*scale)+40;canvas.height=Math.round(h*scale)+40;
+          const context=canvas.getContext('2d');context.fillStyle='white';context.fillRect(0,0,canvas.width,canvas.height);
+          context.imageSmoothingEnabled=true;context.imageSmoothingQuality='high';context.drawImage(img,0,cuts[i],width,h,20,20,canvas.width-40,canvas.height-40);yield canvas;
+        }
+      }};
     }finally{URL.revokeObjectURL(url);}
   }
   async function readPDF(file,job){
@@ -121,7 +155,7 @@ function setupReceiptImport(){
           const base=page.getViewport({scale:1}),scale=Math.min(2,2000/Math.max(base.width,base.height));const viewport=page.getViewport({scale});
           const canvas=document.createElement('canvas');canvas.width=Math.ceil(viewport.width);canvas.height=Math.ceil(viewport.height);
           await page.render({canvasContext:canvas.getContext('2d'),viewport}).promise;
-          try{text=await recognize(canvas,job);}finally{canvas.width=canvas.height=1;}
+          try{text=await recognize(canvas,job);}finally{if(!canvas.receiptTiles)canvas.width=canvas.height=1;}
         }texts.push(text);page.cleanup();
       }return texts.join('\n\n');
     }finally{await loading.destroy();job.pdfLoading=null;}
@@ -138,7 +172,7 @@ function setupReceiptImport(){
       else if(file.type.startsWith('image/')||/^(jpg|jpeg|png|webp|heic|heif)$/.test(ext)){
         previewURL=URL.createObjectURL(file);byId('receiptPreview').src=previewURL;byId('receiptPreview').hidden=false;
         progress('画像のサイズを調整しています…');const canvas=await imageCanvas(file,job);
-        try{text=await recognize(canvas,job);}finally{canvas.width=canvas.height=1;}
+        try{text=await recognize(canvas,job);}finally{if(!canvas.receiptTiles)canvas.width=canvas.height=1;}
       }else if(/^(txt|csv|tsv|json|html|htm)$/.test(ext)||file.type.startsWith('text/')){
         if(file.size>2*1024*1024)throw Error('文字データは2MB以内にしてください');
         text=await file.text();

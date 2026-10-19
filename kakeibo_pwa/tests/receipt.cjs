@@ -23,6 +23,8 @@ const samples=[
  ['合計17037\n株 主 優 待 券 ¥1,800',{amount:17037,benefitAmount:1800,cashAmount:null}],
  ['合計17037\n株主優待券\n¥1,800\nAEON Pay ¥15,237',{amount:15237,benefitAmount:1800}],
  ['合計15237\n株主優待券1800\nAEON Pay読み取り失敗',{amount:15237,benefitAmount:1800,cashAmount:null}],
+ ['合計17,037円\n株 主 優待 券 \u00a51,866\nAEON Pay(和ルメ小) \u00a515,237',{amount:17037,benefitAmount:1866,voucherCandidate:1800}],
+ ['クーポン5%引 ー13\n合計500',{receiptDiscountAmount:13}],
  ['¥500',{amount:500}],['合計 8円',{amount:8}],['内税合計 80円',{amount:0}],
 ];
 const amounts=[13,6,14,7,14,7,18,8,9,15,20,84,29,30,30,30,30,33,34,294,35,129,132,162,162,207,222];
