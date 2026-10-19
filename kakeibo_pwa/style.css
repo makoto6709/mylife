@@ -7,3 +7,5 @@ textarea{display:block;width:100%;font:inherit;font-size:16px;padding:14px;borde
 .receiptActions{display:grid;gap:10px;grid-template-columns:1fr}#receiptPreview{max-width:100%;max-height:220px;object-fit:contain;border-radius:12px}#receiptStatus{padding:12px;background:#eef4ef;border-radius:10px;font-size:14px;overflow-wrap:anywhere}#receiptFileName{overflow-wrap:anywhere;font-size:13px}
 
 .actions button{color:#172b27}
+
+.benefitPreview{padding:12px;border-radius:10px;background:#e8f4ed;color:#163b35;font-weight:700}

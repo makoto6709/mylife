@@ -14,12 +14,15 @@ const samples=[
  ['合 計 ¥ 1 7 , 0 3 7',{amount:17037}],
  ['合計 ¥17, 037',{amount:17037}],
  ['合 計 ¥１７，０３７\n株主優待券 ¥1,800\nAEON Pay(クレジット) ¥15,237\nお釣り ¥0',{receiptTotal:17037,amount:15237,benefitAmount:1800,payment:'AEON Pay'}],
- ['合計17037\n株主優待券1800\nAEON Pay15200',{amount:17037,benefitAmount:0}],
+ ['合計17037\n株主優待券1800\nAEON Pay15200',{amount:17037,benefitAmount:1800}],
  ['割引 10% -13\nアプリクーポン5%引 5% −6\n合計500',{amount:500,receiptDiscountAmount:19,receiptDiscountCount:2}],
  ['割引 -13\n値引合計 -13\n合計500',{receiptDiscountAmount:13}],
  ['返品 -500\n2026-10-19\n合計1000',{receiptDiscountAmount:0}],
  ['割引 -1 2 3\n合計500',{receiptDiscountAmount:123}],
  ['値引合計 -200\n合計500',{receiptDiscountAmount:200}],
+ ['合計17037\n株 主 優 待 券 ¥1,800',{amount:17037,benefitAmount:1800,cashAmount:null}],
+ ['合計17037\n株主優待券\n¥1,800\nAEON Pay ¥15,237',{amount:15237,benefitAmount:1800}],
+ ['合計15237\n株主優待券1800\nAEON Pay読み取り失敗',{amount:15237,benefitAmount:1800,cashAmount:null}],
  ['¥500',{amount:500}],['合計 8円',{amount:8}],['内税合計 80円',{amount:0}],
 ];
 const amounts=[13,6,14,7,14,7,18,8,9,15,20,84,29,30,30,30,30,33,34,294,35,129,132,162,162,207,222];
