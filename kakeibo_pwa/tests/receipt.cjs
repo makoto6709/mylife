@@ -11,6 +11,10 @@ const samples=[
  ['合計 500円\n合計 800円',{amount:500,ambiguous:true}],
  ['店\n2026年2月30日\n合計５００円',{amount:500,date:'',invalidDate:true}],
  ['merchant: テストスーパー\ndate: 2026-10-19\namount: 500',{memo:'テストスーパー',amount:500,date:'2026-10-19'}],
+ ['合 計 ¥ 1 7 , 0 3 7',{amount:17037}],
+ ['合計 ¥17, 037',{amount:17037}],
+ ['合 計 ¥１７，０３７\n株主優待券 ¥1,800\nAEON Pay(クレジット) ¥15,237\nお釣り ¥0',{receiptTotal:17037,amount:15237,benefitAmount:1800,payment:'AEON Pay'}],
+ ['合計17037\n株主優待券1800\nAEON Pay15200',{amount:17037,benefitAmount:0}],
  ['¥500',{amount:500}],['合計 8円',{amount:8}],['内税合計 80円',{amount:0}],
 ];
 for(const [text,want]of samples){ctx.input=text;const result=vm.runInContext('parseReceiptText(input)',ctx);for(const[k,v]of Object.entries(want))assert.equal(result[k],v,`${text}: ${k}`);}

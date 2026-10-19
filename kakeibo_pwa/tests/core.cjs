@@ -36,10 +36,10 @@ ctx.fetch=async(url,options={})=>{
  ctx.value='スーパー, "食品"\n2行目';assert.equal(get("parseCsv(csvCell(value))[0][0]"),ctx.value);
  // Worker cleanup and fetch handling stay inside kakeibo's namespace and scope.
  const handlers={};let deleted=[],matched=[],responded=false;
- const workerCtx=vm.createContext({URL,Response,Promise,location:{origin:'https://example.test'},self:{location:{origin:'https://example.test'},registration:{scope:'https://example.test/mylife/kakeibo_pwa/'},addEventListener:(name,handler)=>handlers[name]=handler},caches:{keys:async()=>['kakeibo-v1','calendar-v1','kakeibo-v4.1.2'],delete:async key=>deleted.push(key),match:async(req,opts)=>{matched.push(opts.cacheName);return 'cached';}},fetch:async()=>{throw Error('offline')}});
+ const workerCtx=vm.createContext({URL,Response,Promise,location:{origin:'https://example.test'},self:{location:{origin:'https://example.test'},registration:{scope:'https://example.test/mylife/kakeibo_pwa/'},addEventListener:(name,handler)=>handlers[name]=handler},caches:{keys:async()=>['kakeibo-v1','calendar-v1','kakeibo-v4.1.3'],delete:async key=>deleted.push(key),match:async(req,opts)=>{matched.push(opts.cacheName);return 'cached';}},fetch:async()=>{throw Error('offline')}});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8'),workerCtx);
  await new Promise((resolve,reject)=>handlers.activate({waitUntil:p=>p.then(resolve,reject)}));assert.deepEqual(deleted,['kakeibo-v1']);
  handlers.fetch({request:{method:'GET',url:'https://example.test/mylife/calendar/'},respondWith:()=>responded=true});assert.equal(responded,false);
- await new Promise((resolve,reject)=>handlers.fetch({request:{method:'GET',url:'https://example.test/mylife/kakeibo_pwa/app.js'},respondWith:p=>p.then(resolve,reject)}));assert.deepEqual(matched,['kakeibo-v4.1.2']);
+ await new Promise((resolve,reject)=>handlers.fetch({request:{method:'GET',url:'https://example.test/mylife/kakeibo_pwa/app.js'},respondWith:p=>p.then(resolve,reject)}));assert.deepEqual(matched,['kakeibo-v4.1.3']);
  console.log(`PASS: ${samples.length} input cases, invalid date, failed sync retention, retry, ID deduplication, private exclusion, in-flight edit, legacy private/header safeguards, expired OAuth, CSV escaping, worker cache isolation/offline fallback`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
