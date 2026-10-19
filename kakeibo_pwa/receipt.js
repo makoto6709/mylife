@@ -27,6 +27,15 @@ function parseReceiptText(raw, now=new Date()) {
   if(d){const candidate=new Date(+d[1],+d[2]-1,+d[3]);if(candidate.getFullYear()===+d[1]&&candidate.getMonth()===+d[2]-1&&candidate.getDate()===+d[3])date=`${d[1]}-${d[2].padStart(2,'0')}-${d[3].padStart(2,'0')}`;else invalidDate=true;}
   const merchant=lines.find(l=>/^(?:merchant|store|shop|店名|店舗名)\s*[:：]/i.test(l));
   const memo=merchant?.replace(/^[^:：]+[:：]\s*/,'')||lines.find(l=>!/^\d|領収|レシート|receipt|電子レシート|登録番号|tel|電話|〒/i.test(l))||'レシート';
+  const discountRows=[];const discountSummaries=[];
+  for(const line of lines){
+    if(/返品|返金|取消|電話|TEL|FAX|合\s*計|小\s*計|お支払|お釣|残高|\d{2,4}[/-]\d{1,2}[/-]\d{1,2}/i.test(line)&&!/割引合計|値引合計|割引総額|値引総額/.test(line))continue;
+    const match=line.match(/[-−‐–—]\s*[¥￥]?\s*(\d[\d, ]*)(?:円)?\s*$/);
+    if(!match)continue;const value=Number(match[1].replace(/[ ,]/g,''));if(!Number.isSafeInteger(value)||value<=0)continue;
+    (/割引合計|値引合計|割引総額|値引総額/.test(line)?discountSummaries:discountRows).push(value);
+  }
+  const receiptDiscountAmount=discountRows.length?discountRows.reduce((sum,n)=>sum+n,0):Math.max(0,...discountSummaries);
+  const receiptDiscountCount=discountRows.length;
   const receiptTotal=amount;
   let benefitAmount=0,cashAmount=null,payment='未指定',benefitHint='';
   const voucherLine=lines.find(l=>/株\s*主\s*優\s*待(?:券)?/.test(l));
@@ -36,7 +45,7 @@ function parseReceiptText(raw, now=new Date()) {
     if(v>0&&receiptTotal>=v&&p!==null&&p+v===receiptTotal){benefitAmount=v;cashAmount=p;amount=p;payment=/AEON\s*Pay/i.test(paid)?'AEON Pay':/PayPay/i.test(paid)?'PayPay':/クレジット/.test(paid)?'クレジット':/現金/.test(paid)?'現金':'電子マネー';}
     else if(v>0)benefitHint='株主優待と支払額の合計を確認してください。自動で差し引いていません。';
   }
-  return {amount,date,memo,ambiguous,invalidDate,receiptTotal,benefitAmount,benefitType:benefitAmount?'株主優待':'',cashAmount,payment,benefitHint};
+  return {amount,date,memo,ambiguous,invalidDate,receiptTotal,receiptDiscountAmount,receiptDiscountCount,benefitAmount,benefitType:benefitAmount?'株主優待':'',cashAmount,payment,benefitHint};
 }
 function setupReceiptImport(){
   const byId=id=>document.getElementById(id);
@@ -45,7 +54,7 @@ function setupReceiptImport(){
   function clearPreview(){if(previewURL)URL.revokeObjectURL(previewURL);previewURL='';byId('receiptPreview').removeAttribute('src');byId('receiptPreview').hidden=true;}
   function updateCandidate(){
     const parsed=parseReceiptText(byId('receiptText').value);
-    byId('receiptCandidate').textContent=parsed.amount?`取引候補：${parsed.amount.toLocaleString('ja-JP')}円${parsed.benefitAmount?' ／ 株主優待 '+parsed.benefitAmount.toLocaleString('ja-JP')+'円（レシート合計 '+parsed.receiptTotal.toLocaleString('ja-JP')+'円）':''}${parsed.date?' ／ '+parsed.date:''}${parsed.ambiguous?'（金額の候補が複数あります）':''}`:'金額を特定できません。読み取り文字を直すか、取引画面で入力してください。';
+    byId('receiptCandidate').textContent=parsed.amount?`取引候補：${parsed.amount.toLocaleString('ja-JP')}円${parsed.benefitAmount?' ／ 株主優待 '+parsed.benefitAmount.toLocaleString('ja-JP')+'円（レシート合計 '+parsed.receiptTotal.toLocaleString('ja-JP')+'円）':''}${parsed.receiptDiscountAmount?' ／ 値引き・割引 '+parsed.receiptDiscountAmount.toLocaleString('ja-JP')+'円（'+parsed.receiptDiscountCount+'件）':''}${parsed.date?' ／ '+parsed.date:''}${parsed.ambiguous?'（金額の候補が複数あります）':''}`:'金額を特定できません。読み取り文字を直すか、取引画面で入力してください。';
   }
   function checkpoint(job){if(job.cancelled)throw Error('読み取りを中止しました');}
   function deadline(promise,ms,job,label){
@@ -152,7 +161,7 @@ function setupReceiptImport(){
   byId('receiptApply').onclick=()=>{
     const text=byId('receiptText').value.trim();if(!text){progress('読み取り文字がありません。ファイルを選ぶか、文字を貼り付けてください。');return;}
     const parsed=parseReceiptText(text);const category=guessCategory(text);byId('receiptDialog').close();
-    openEntry({amount:parsed.amount||'',date:parsed.date||today(),memo:parsed.memo,category:category==='その他'?'未分類':category,benefitAmount:parsed.benefitAmount,benefitType:parsed.benefitType,payment:parsed.payment,hint:`${parsed.benefitHint}${parsed.benefitAmount?'レシート合計'+parsed.receiptTotal.toLocaleString('ja-JP')+'円＝支払'+parsed.amount.toLocaleString('ja-JP')+'円＋株主優待'+parsed.benefitAmount.toLocaleString('ja-JP')+'円。':''}${parsed.ambiguous?'複数の金額があります。':''}${parsed.invalidDate?'日付を読み取れませんでした。':''}レシートからの候補です。金額・日付・内容を確認して保存してください。元ファイルは保存されません。`});
+    openEntry({amount:parsed.amount||'',date:parsed.date||today(),memo:parsed.memo,category:category==='その他'?'未分類':category,benefitAmount:parsed.benefitAmount+parsed.receiptDiscountAmount,benefitDetails:{...(parsed.benefitAmount?{[parsed.benefitType]:parsed.benefitAmount}:{}),...(parsed.receiptDiscountAmount?{'値引き・割引':parsed.receiptDiscountAmount}:{})},benefitType:parsed.benefitType||(parsed.receiptDiscountAmount?'値引き・割引':''),payment:parsed.payment,hint:`${parsed.receiptDiscountAmount?'値引き・割引'+parsed.receiptDiscountAmount.toLocaleString('ja-JP')+'円をお得に加算。支払額からは再度差し引きません。':''}${parsed.benefitHint}${parsed.benefitAmount?'レシート合計'+parsed.receiptTotal.toLocaleString('ja-JP')+'円＝支払'+parsed.amount.toLocaleString('ja-JP')+'円＋株主優待'+parsed.benefitAmount.toLocaleString('ja-JP')+'円。':''}${parsed.ambiguous?'複数の金額があります。':''}${parsed.invalidDate?'日付を読み取れませんでした。':''}レシートからの候補です。金額・日付・内容を確認して保存してください。元ファイルは保存されません。`});
   };
   setBusy(false);
 }

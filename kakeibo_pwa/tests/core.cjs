@@ -23,7 +23,7 @@ ctx.fetch=async(url,options={})=>{
 };
 (async()=>{
  fail=true;await assert.rejects(get('sync()'),/503/);assert.equal(get('entries.every(e=>e.pending)'),true);assert.equal(storage.has('kakeibo_entries_v1'),false);
- fail=false;await get('sync()');await get('sync()');assert.equal(rows.length,2);assert.equal(get('entries.length'),2);assert.equal(get("entries.find(e=>e.id==='private').pending"),true);assert.equal(get("entries.find(e=>e.id==='expense').pending"),false);
+ get("entries[0].benefitAmount=3574;entries[0].benefitType='株主優待';entries[0].benefitDetails={'株主優待':1800,'値引き・割引':1774}");fail=false;await get('sync()');await get('sync()');assert.equal(rows.length,2);assert.deepEqual(JSON.parse(rows[1][11]),{'株主優待':1800,'値引き・割引':1774});assert.equal(get("entries.find(e=>e.id==='expense').benefitDetails['値引き・割引']"),1774);assert.equal(get('entries.length'),2);assert.equal(get("entries.find(e=>e.id==='private').pending"),true);assert.equal(get("entries.find(e=>e.id==='expense').pending"),false);
  duringWrite=()=>get("entries.find(e=>e.id==='expense').amount=750;entries.find(e=>e.id==='expense').updatedAt='2026-10-19T02:00:00Z';entries.find(e=>e.id==='expense').pending=true");await get('sync()');assert.equal(get("entries.find(e=>e.id==='expense').amount"),750);assert.equal(get("entries.find(e=>e.id==='expense').pending"),true);duringWrite=null;
  const writeCount=writes;rows.push(['legacy','2026-10-18','秘密支出','その他',900,'private','','2026-10-18T00:00:00Z','FALSE','','']);await assert.rejects(get('sync()'),/以前の秘密支出/);assert.equal(writes,writeCount);
  rows=[['wrong header']];await assert.rejects(get('sync()'),/列構成/);assert.equal(writes,writeCount);
@@ -36,10 +36,10 @@ ctx.fetch=async(url,options={})=>{
  ctx.value='スーパー, "食品"\n2行目';assert.equal(get("parseCsv(csvCell(value))[0][0]"),ctx.value);
  // Worker cleanup and fetch handling stay inside kakeibo's namespace and scope.
  const handlers={};let deleted=[],matched=[],responded=false;
- const workerCtx=vm.createContext({URL,Response,Promise,location:{origin:'https://example.test'},self:{location:{origin:'https://example.test'},registration:{scope:'https://example.test/mylife/kakeibo_pwa/'},addEventListener:(name,handler)=>handlers[name]=handler},caches:{keys:async()=>['kakeibo-v1','calendar-v1','kakeibo-v4.1.3'],delete:async key=>deleted.push(key),match:async(req,opts)=>{matched.push(opts.cacheName);return 'cached';}},fetch:async()=>{throw Error('offline')}});
+ const workerCtx=vm.createContext({URL,Response,Promise,location:{origin:'https://example.test'},self:{location:{origin:'https://example.test'},registration:{scope:'https://example.test/mylife/kakeibo_pwa/'},addEventListener:(name,handler)=>handlers[name]=handler},caches:{keys:async()=>['kakeibo-v1','calendar-v1','kakeibo-v4.1.4'],delete:async key=>deleted.push(key),match:async(req,opts)=>{matched.push(opts.cacheName);return 'cached';}},fetch:async()=>{throw Error('offline')}});
  vm.runInContext(fs.readFileSync(path.join(__dirname,'../sw.js'),'utf8'),workerCtx);
  await new Promise((resolve,reject)=>handlers.activate({waitUntil:p=>p.then(resolve,reject)}));assert.deepEqual(deleted,['kakeibo-v1']);
  handlers.fetch({request:{method:'GET',url:'https://example.test/mylife/calendar/'},respondWith:()=>responded=true});assert.equal(responded,false);
- await new Promise((resolve,reject)=>handlers.fetch({request:{method:'GET',url:'https://example.test/mylife/kakeibo_pwa/app.js'},respondWith:p=>p.then(resolve,reject)}));assert.deepEqual(matched,['kakeibo-v4.1.3']);
+ await new Promise((resolve,reject)=>handlers.fetch({request:{method:'GET',url:'https://example.test/mylife/kakeibo_pwa/app.js'},respondWith:p=>p.then(resolve,reject)}));assert.deepEqual(matched,['kakeibo-v4.1.4']);
  console.log(`PASS: ${samples.length} input cases, invalid date, failed sync retention, retry, ID deduplication, private exclusion, in-flight edit, legacy private/header safeguards, expired OAuth, CSV escaping, worker cache isolation/offline fallback`);
 })().catch(e=>{console.error(e);process.exitCode=1;});
