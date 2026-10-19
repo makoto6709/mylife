@@ -5,3 +5,5 @@
 textarea{display:block;width:100%;font:inherit;font-size:16px;padding:14px;border:1px solid #d3ded7;border-radius:10px;resize:vertical}dialog{max-height:85dvh}button{touch-action:manipulation}.summaryDetail{font-size:13px;color:#d0e7dc}.period{margin-bottom:18px}.period input{max-width:210px;display:block}#toast{z-index:1000}dialog[open]~#toast{z-index:1000}
 
 .receiptActions{display:grid;gap:10px;grid-template-columns:1fr}#receiptPreview{max-width:100%;max-height:220px;object-fit:contain;border-radius:12px}#receiptStatus{padding:12px;background:#eef4ef;border-radius:10px;font-size:14px;overflow-wrap:anywhere}#receiptFileName{overflow-wrap:anywhere;font-size:13px}
+
+.actions button{color:#172b27}
